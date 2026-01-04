@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /sword-framework/
+RewriteBase /
 
 # Dosya veya dizin olmayan istekleri index.php'ye yönlendir
 RewriteCond %{REQUEST_FILENAME} !-f
