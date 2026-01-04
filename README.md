@@ -2,7 +2,7 @@
 
 **Keskin. Hızlı. Ölümsüz.**
 
-Modern PHP web uygulamaları için tasarlanmış, hafif ve güçlü bir MVC framework'üdür. Fındık kırmak için balyoz kullanmak istemeyenlere özel geliştirilmiştir. En iyi ve en güçlü php frameworklerdeki en çok kullanılan özellikler ve wordpress tema yönetimine benzer bir yapıyla, geliştiricilerinin işinin kolaylaştırılması amaçlanmıştır.
+Modern PHP web uygulamaları için tasarlanmış, hafif ve güçlü bir MVC framework'üdür. Fındık kırmak için balyoz kullanmak istemeyenlere özel geliştirilmiştir. En iyi ve en güçlü php frameworklerdeki en çok kullanılan özellikler ve wordpress tema yönetimine benzer bir yapıyla, geliştiricilerinin işininin kolaylaştırılması amaçlanmıştır.
 
 ## 🚀 Neden Sword Framework?
 
@@ -32,6 +32,61 @@ Sword::routerGet('/user/:id', 'UserController@show');
 
 // RESTful rotalar
 Sword::routerResource('/users', 'UserController');
+```
+
+### Event System
+
+```php
+// Event dinleyici
+Events::listen('order.created', function($order) {
+    // Email gönder
+    Mailer::send($order->email, 'Sipariş Onayı');
+});
+
+// Event tetikleme
+Events::dispatch('order.created', $order);
+```
+
+### Menu System
+
+```php
+// Menü ekleme
+Menu::add('admin', 'Dashboard', '/admin', [
+    'id' => 'dashboard',
+    'icon' => 'dashboard'
+]);
+
+// Submenu sistemi
+Menu::add('admin', 'Ürünler', '#', [
+    'id' => 'products',
+    'icon' => 'box'
+]);
+
+Menu::add('admin', 'Tüm Ürünler', '/admin/products', [
+    'parent_id' => 'products'
+]);
+
+// Menü gösterimi
+echo Menu::render('admin', 'admin');
+echo Menu::render('main', 'navbar');
+```
+
+### Plugin System
+
+```php
+// Plugin geliştirme
+class SeoOptimizerPlugin extends BasePlugin
+{
+    public function init()
+    {
+        $this->addAction('before_render', [$this, 'addMetaTags']);
+        $this->addMenu('admin', 'SEO Ayarları', '/admin/seo');
+    }
+}
+
+// Plugin yönetimi
+Plugin::activate('seo-optimizer');
+Plugin::deactivate('payment-gateway');
 ```
 
 ### Database & ORM
@@ -133,11 +188,15 @@ app/
 
 content/
 ├── themes/         # Tema dosyaları
+├── plugins/        # Eklenti sistemi
 ├── storage/        # Cache, logs, sessions
 └── uploads/        # Yüklenen dosyalar
 
 sword/
 ├── Core sınıfları
+├── Events.php      # Event sistemi
+├── Menu.php        # Menü yönetimi
+├── Plugin.php      # Eklenti sistemi
 ├── ORM/            # Veritabanı katmanı
 ├── Cache/          # Önbellek sistemi
 └── View/           # Görünüm motoru
@@ -195,6 +254,9 @@ Sword::trigger('user.created', $newUser);
 - [Request](docs/Request.md) - HTTP request yönetimi
 - [Response](docs/Response.md) - HTTP response yönetimi
 - [View](docs/View.md) - Görünüm sistemi
+- [Events](docs/Events.md) - Event sistemi
+- [Menu](docs/Menu.md) - Menü yönetimi
+- [Plugin](docs/Plugin.md) - Eklenti sistemi
 
 ### Database & ORM
 

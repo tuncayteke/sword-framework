@@ -1,0 +1,11 @@
+{
+    "title": "SEO Optimizer",
+    "description": "Otomatik SEO optimizasyonu ve meta tag yönetimi",
+    "version": "1.0.0",
+    "author": "Tuncay TEKE",
+    "website": "https://www.tuncayteke.com.tr",
+    "requires": "1.0.0",
+    "category": "SEO",
+    "tags": ["seo", "meta", "optimization"],
+    "screenshot": "screenshot.png"
+}

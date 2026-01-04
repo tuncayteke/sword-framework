@@ -245,7 +245,7 @@ $router->group([
     'prefix' => '/admin',
     'middleware' => 'Auth'
 ], function($router) {
-    
+
     $router->group([
         'prefix' => '/users',
         'middleware' => 'AdminRole'
@@ -254,7 +254,7 @@ $router->group([
         // URL: /admin/users
         // Middleware: Auth, AdminRole
     });
-    
+
 });
 ```
 
@@ -341,16 +341,16 @@ $router->resource('/users', 'UserController');
 
 This creates 8 routes:
 
-| Method | URI | Action | Route Name |
-|--------|-----|--------|------------|
-| GET | /users | index | users.index |
-| GET | /users/create | create | users.create |
-| POST | /users | store | users.store |
-| GET | /users/:id | show | users.show |
-| GET | /users/:id/edit | edit | users.edit |
-| PUT | /users/:id | update | users.update |
-| PATCH | /users/:id | update | users.patch |
-| DELETE | /users/:id | destroy | users.destroy |
+| Method | URI             | Action  | Route Name    |
+| ------ | --------------- | ------- | ------------- |
+| GET    | /users          | index   | users.index   |
+| GET    | /users/create   | create  | users.create  |
+| POST   | /users          | store   | users.store   |
+| GET    | /users/:id      | show    | users.show    |
+| GET    | /users/:id/edit | edit    | users.edit    |
+| PUT    | /users/:id      | update  | users.update  |
+| PATCH  | /users/:id      | update  | users.patch   |
+| DELETE | /users/:id      | destroy | users.destroy |
 
 ### API Resource (no create/edit)
 
@@ -360,13 +360,13 @@ $router->apiResource('/posts', 'PostController');
 
 This creates 6 routes (without create and edit):
 
-| Method | URI | Action | Route Name |
-|--------|-----|--------|------------|
-| GET | /posts | index | posts.index |
-| POST | /posts | store | posts.store |
-| GET | /posts/:id | show | posts.show |
-| PUT | /posts/:id | update | posts.update |
-| PATCH | /posts/:id | update | posts.patch |
+| Method | URI        | Action  | Route Name    |
+| ------ | ---------- | ------- | ------------- |
+| GET    | /posts     | index   | posts.index   |
+| POST   | /posts     | store   | posts.store   |
+| GET    | /posts/:id | show    | posts.show    |
+| PUT    | /posts/:id | update  | posts.update  |
+| PATCH  | /posts/:id | update  | posts.patch   |
 | DELETE | /posts/:id | destroy | posts.destroy |
 
 ### Named Resource
@@ -408,7 +408,7 @@ if ($router->loadCachedRoutes()) {
     // Define routes
     require 'routes/web.php';
     require 'routes/api.php';
-    
+
     // Cache for production
     if (ENVIRONMENT === 'production') {
         $router->cacheRoutes();
@@ -435,7 +435,7 @@ $router->enableCache(ENVIRONMENT === 'production');
 if (!$router->loadCachedRoutes()) {
     require 'routes/web.php';
     require 'routes/api.php';
-    
+
     if (ENVIRONMENT === 'production') {
         $router->cacheRoutes();
     }
@@ -464,12 +464,12 @@ With Cache (1000 routes):
 // Bind 'user' parameter to User model
 $router->bind('user', function($id) {
     $user = User::find($id);
-    
+
     if (!$user) {
         http_response_code(404);
         die('User not found');
     }
-    
+
     return $user;
 });
 
@@ -580,6 +580,7 @@ $router->rateLimit('/api/v[0-9]+/.*', 100, 1);
 ### Rate Limit Response
 
 When rate limit is exceeded:
+
 - HTTP Status: `429 Too Many Requests`
 - Default message: "Too Many Requests"
 
@@ -666,7 +667,7 @@ $router->errorHandler(403, function($message) {
 $router->errorHandler(500, function($message) {
     // Log error
     error_log($message);
-    
+
     return view('errors.500');
 });
 
@@ -773,6 +774,7 @@ $named = $router->getNamedRoutes();
 ### Optimization Tips
 
 1. **Enable Route Caching in Production**
+
 ```php
 if (ENVIRONMENT === 'production') {
     $router->enableCache(true);
@@ -781,6 +783,7 @@ if (ENVIRONMENT === 'production') {
 ```
 
 2. **Use Static Routes When Possible**
+
 ```php
 // Static (fast)
 $router->get('/about', 'PageController@about');
@@ -790,6 +793,7 @@ $router->get('/page/:slug', 'PageController@show');
 ```
 
 3. **Limit Dynamic Routes**
+
 ```php
 // Bad: Too many dynamic segments
 $router->get('/:year/:month/:day/:category/:subcategory/:slug', ...);
@@ -799,6 +803,7 @@ $router->get('/archive/:year/:month/:slug', ...);
 ```
 
 4. **Use Route Groups**
+
 ```php
 // Groups share common middleware and namespace
 $router->group([
@@ -917,7 +922,7 @@ $router->group([
 // bootstrap.php
 if (ENVIRONMENT === 'production') {
     $router->enableCache(true);
-    
+
     if (!$router->loadCachedRoutes()) {
         require 'routes/web.php';
         $router->cacheRoutes();
@@ -983,11 +988,11 @@ $router->pattern('username', '[a-zA-Z0-9_]{3,20}');
 
 // Load routes (from cache if available)
 if (!$router->loadCachedRoutes()) {
-    
+
     // Public routes
     $router->get('/', 'HomeController@index', 'home');
     $router->get('/about', 'PageController@about', 'about');
-    
+
     // Auth routes
     $router->group([
         'prefix' => '/auth'
@@ -996,7 +1001,7 @@ if (!$router->loadCachedRoutes()) {
         $router->post('/login', 'AuthController@login', 'login.post');
         $router->post('/logout', 'AuthController@logout', 'logout');
     });
-    
+
     // Protected routes
     $router->group([
         'middleware' => 'Auth'
@@ -1004,7 +1009,7 @@ if (!$router->loadCachedRoutes()) {
         $router->get('/dashboard', 'DashboardController@index', 'dashboard');
         $router->get('/profile', 'UserController@profile', 'profile');
     });
-    
+
     // Admin routes
     $router->group([
         'prefix' => '/admin',
@@ -1015,7 +1020,7 @@ if (!$router->loadCachedRoutes()) {
         $router->resource('/users', 'UserController', 'admin.users');
         $router->resource('/posts', 'PostController', 'admin.posts');
     });
-    
+
     // API v1
     $router->group([
         'prefix' => '/api/v1',
@@ -1023,13 +1028,13 @@ if (!$router->loadCachedRoutes()) {
         'middleware' => 'ApiAuth'
     ], function($router) {
         $router->rateLimit('/api/v1/*', 100, 1);
-        
+
         $router->apiResource('/users', 'UserController');
         $router->apiResource('/posts', 'PostController');
-        
+
         $router->get('/stats', 'StatsController@index');
     });
-    
+
     // Cache routes in production
     if (ENVIRONMENT === 'production') {
         $router->cacheRoutes();
@@ -1105,12 +1110,14 @@ class MyMiddleware {
 ### From Old Router
 
 **Old:**
+
 ```php
 $router->get('/user/:id', 'UserController@show');
 $router->dispatch();
 ```
 
 **New (same, but with new features):**
+
 ```php
 // Enable cache
 $router->enableCache(true);
@@ -1127,11 +1134,13 @@ $router->dispatch();
 ### Adding Middleware
 
 **Old:**
+
 ```php
 $router->middleware('Auth')->get('/dashboard', '...');
 ```
 
 **New (supports pipeline):**
+
 ```php
 $router->middleware('Auth')->get('/dashboard', '...');
 
