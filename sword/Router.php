@@ -4,7 +4,6 @@
  * Sword Framework - Geliştirilmiş Router
  * 
  * by Tuncay TEKE (https://www.tuncayteke.com.tr)
- * Improved by Claude AI
  *
  * Router sınıfı - URL yönlendirme işlemlerini yönetir
  * 
