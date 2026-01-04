@@ -2,7 +2,7 @@
 
 **Keskin. Hızlı. Ölümsüz.**
 
-Modern PHP web uygulamaları için tasarlanmış, hafif ve güçlü bir MVC framework'üdür. Fındık kırmak için balyoz kullanmak istemeyenlere özel geliştirilmiştir. En iyi ve en güçlü php frameworklerdeki en çok kullanılan özellikler ve wordpress tema yönetimine benzer bir yapıyla, geliştiricilerinin işininin kolaylaştırılması amaçlanmıştır.
+Modern PHP web uygulamaları için tasarlanmış, hafif ve güçlü bir MVC framework'üdür. Fındık kırmak için balyoz kullanmak istemeyenlere özel geliştirilmiştir. En iyi ve en güçlü php frameworklerdeki en çok kullanılan özellikler ve wordpress tema yönetimine benzer bir yapıyla, geliştiricilerinin işinin kolaylaştırılması amaçlanmıştır.
 
 ## 🚀 Neden Sword Framework?
 
