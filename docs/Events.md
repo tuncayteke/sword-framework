@@ -1,1261 +1,365 @@
-# Events Class - Complete Documentation
+# Events - Sword Framework
 
-Modern, powerful and PSR-14 compatible event dispatching system for Sword Framework.
+**Basit ve etkili event sistemi**  
+Keskin. Hızlı. Ölümsüz.
 
-## Table of Contents
+## Özellikler
 
-- [Overview](#overview)
-- [Installation](#installation)
-- [Basic Usage](#basic-usage)
-- [Event Objects](#event-objects)
-- [Event Listeners](#event-listeners)
-- [Event Subscribers](#event-subscribers)
-- [Wildcard Events](#wildcard-events)
-- [Event Middleware](#event-middleware)
-- [Queued Events](#queued-events)
-- [Async Events](#async-events)
-- [Event History](#event-history)
-- [System Events](#system-events)
-- [Advanced Features](#advanced-features)
-- [Best Practices](#best-practices)
-- [Performance](#performance)
+- ✅ **Basit Event Listening** - listen/on, forget/off
+- ✅ **Event Dispatching** - dispatch/trigger  
+- ✅ **Priority System** - İsteğe bağlı öncelik
+- ✅ **Multiple Parameters** - Esnek parametre geçişi
+- ✅ **Exception Handling** - Güvenli listener çalıştırma
+- ✅ **Class@method Support** - String listener desteği
+- ✅ **System Events** - Framework event'leri
 
----
+## Temel Kullanım
 
-## Overview
-
-The Events class provides a robust event dispatching system with modern features:
-
-- ✅ PSR-14 Event Dispatcher compatible
-- ✅ Event objects with stopPropagation
-- ✅ Event subscribers
-- ✅ Wildcard event listeners
-- ✅ Event middleware
-- ✅ Queued events
-- ✅ Async event support
-- ✅ Event history & replay
-- ✅ Priority-based execution
-- ✅ Type-safe event objects
-
----
-
-## Installation
+### Event Listener Ekleme
 
 ```php
-require_once 'sword/Events.php';
-```
-
----
-
-## Basic Usage
-
-### Simple Event Listening
-
-```php
-// Listen to an event
-Events::listen('user.registered', function($event) {
-    $user = $event->get('user');
-    echo "Welcome, " . $user->name;
+// Basit listener
+Events::listen('user.registered', function($user) {
+    echo "Hoş geldin, " . $user->name;
 });
 
-// Dispatch event
-Events::dispatch('user.registered', ['user' => $user]);
-```
+// Class@method formatı
+Events::listen('user.login', 'UserController@onLogin');
 
-### With Priority
-
-```php
-// Lower priority number = runs first
-Events::listen('user.registered', function($event) {
-    echo "This runs first";
-}, 10);
-
-Events::listen('user.registered', function($event) {
-    echo "This runs second";
-}, 20);
-```
-
-### Multiple Listeners
-
-```php
-Events::listen('order.created', function($event) {
-    // Send email
-    Mailer::send($event->get('order'));
-});
-
-Events::listen('order.created', function($event) {
-    // Update inventory
-    Inventory::reduce($event->get('order'));
-});
-
-Events::listen('order.created', function($event) {
-    // Log order
-    Logger::info('Order created', $event->getData());
+// Closure ile
+Events::listen('order.created', function($order, $items) {
+    // Sipariş işlemleri
+    sendEmail($order->email);
+    updateInventory($items);
 });
 ```
 
----
-
-## Event Objects
-
-### Creating Event Objects
+### Event Tetikleme
 
 ```php
-// Simple event
-$event = new Event('user.registered', [
-    'user' => $user,
-    'ip' => $_SERVER['REMOTE_ADDR']
-]);
+// Tek parametre
+Events::dispatch('user.registered', $user);
 
-Events::dispatch($event);
+// Çoklu parametre
+Events::dispatch('order.created', $order, $items, $total);
+
+// Alias kullanımı
+Events::trigger('user.login', $user);
 ```
 
-### Custom Event Classes
+## Priority System
 
 ```php
-class UserRegisteredEvent extends Event
-{
-    private $user;
+// Düşük sayı önce çalışır (varsayılan: 10)
+Events::listen('user.login', 'Security@check', 1);      // İlk
+Events::listen('user.login', 'Logger@log');             // İkinci (10)
+Events::listen('user.login', 'Email@send', 20);        // Üçüncü
 
-    public function __construct($user)
-    {
-        parent::__construct('user.registered');
-        $this->user = $user;
-    }
-
-    public function getUser()
-    {
-        return $this->user;
-    }
-}
-
-// Usage
-$event = new UserRegisteredEvent($user);
-Events::dispatch($event);
-
-// In listener
-Events::listen('user.registered', function(UserRegisteredEvent $event) {
-    $user = $event->getUser();
-    // ...
-});
+// Çalışma sırası: Security@check -> Logger@log -> Email@send
 ```
 
-### Stoppable Events
+## Event Kaldırma
 
 ```php
-Events::listen('payment.processing', function($event) {
-    if ($event->get('amount') > 10000) {
-        // Stop further processing
-        $event->stopPropagation();
-        return false;
-    }
-});
-
-Events::listen('payment.processing', function($event) {
-    // This won't run if amount > 10000
-    processPayment($event->get('order'));
-});
-```
-
-### Event Methods
-
-```php
-$event = new Event('user.action', ['action' => 'login']);
-
-// Get event name
-$name = $event->getName(); // 'user.action'
-
-// Get all data
-$data = $event->getData(); // ['action' => 'login']
-
-// Get specific data
-$action = $event->get('action'); // 'login'
-$missing = $event->get('missing', 'default'); // 'default'
-
-// Set data
-$event->set('timestamp', time());
-
-// Get timestamp
-$timestamp = $event->getTimestamp();
-
-// Stop propagation
-$event->stopPropagation();
-
-// Check if stopped
-if ($event->isPropagationStopped()) {
-    // Handle stopped event
-}
-```
-
----
-
-## Event Listeners
-
-### Basic Listener
-
-```php
-Events::listen('user.login', function($event) {
-    $user = $event->get('user');
-    Logger::info("User {$user->name} logged in");
-});
-```
-
-### Class-based Listener
-
-```php
-class UserLoginListener
-{
-    public function handle($event)
-    {
-        $user = $event->get('user');
-        // Handle login logic
-    }
-}
-
-// Register with class@method notation
-Events::listen('user.login', 'UserLoginListener@handle');
-```
-
-### Multiple Events, One Listener
-
-```php
-$logListener = function($event) {
-    Logger::info($event->getName(), $event->getData());
-};
-
-Events::listen('user.login', $logListener);
-Events::listen('user.logout', $logListener);
-Events::listen('order.created', $logListener);
-```
-
-### Removing Listeners
-
-```php
-$listener = function($event) {
-    echo "This will be removed";
+$listener = function($user) {
+    echo "Test";
 };
 
 Events::listen('test.event', $listener);
 
-// Remove specific listener
+// Belirli listener'ı kaldır
 Events::forget('test.event', $listener);
 
-// Remove all listeners for an event
+// Tüm listener'ları kaldır
 Events::forget('test.event');
+
+// Alias
+Events::off('test.event');
 ```
 
----
+## Sistem Event'leri
 
-## Event Subscribers
-
-### Creating a Subscriber
+### Mevcut System Events
 
 ```php
-class UserEventSubscriber implements EventSubscriberInterface
-{
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            'user.registered' => 'onUserRegistered',
-            'user.login' => ['onUserLogin', 10],
-            'user.logout' => [
-                ['onUserLogout', 10],
-                ['logLogout', 20]
-            ]
-        ];
-    }
-
-    public function onUserRegistered($event)
-    {
-        $user = $event->get('user');
-        // Send welcome email
-        Mailer::send($user->email, 'Welcome!');
-    }
-
-    public function onUserLogin($event)
-    {
-        // Update last login
-        $user = $event->get('user');
-        $user->last_login = time();
-        $user->save();
-    }
-
-    public function onUserLogout($event)
-    {
-        // Clear session data
-        Session::clear();
-    }
-
-    public function logLogout($event)
-    {
-        // Log logout event
-        Logger::info('User logged out');
-    }
-}
-
-// Register subscriber
-Events::subscribe(new UserEventSubscriber());
-
-// Or with class name
-Events::subscribe('UserEventSubscriber');
-```
-
-### Order Event Subscriber Example
-
-```php
-class OrderEventSubscriber implements EventSubscriberInterface
-{
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            'order.created' => [
-                ['sendConfirmation', 10],
-                ['updateInventory', 20],
-                ['notifyAdmin', 30]
-            ],
-            'order.cancelled' => 'onOrderCancelled',
-            'order.shipped' => 'onOrderShipped'
-        ];
-    }
-
-    public function sendConfirmation($event)
-    {
-        $order = $event->get('order');
-        Mailer::send($order->email, 'Order Confirmed', $order);
-    }
-
-    public function updateInventory($event)
-    {
-        $order = $event->get('order');
-        foreach ($order->items as $item) {
-            Inventory::reduce($item->product_id, $item->quantity);
-        }
-    }
-
-    public function notifyAdmin($event)
-    {
-        $order = $event->get('order');
-        Mailer::send('admin@example.com', 'New Order', $order);
-    }
-
-    public function onOrderCancelled($event)
-    {
-        // Handle cancellation
-    }
-
-    public function onOrderShipped($event)
-    {
-        // Handle shipping
-    }
-}
-```
-
----
-
-## Wildcard Events
-
-### Wildcard Patterns
-
-```php
-// Listen to all user events
-Events::listen('user.*', function($event) {
-    Logger::info('User event: ' . $event->getName());
-});
-
-// Triggers:
-Events::dispatch('user.registered'); // ✓
-Events::dispatch('user.login');      // ✓
-Events::dispatch('user.logout');     // ✓
-Events::dispatch('user.updated');    // ✓
-```
-
-### Suffix Wildcards
-
-```php
-// Listen to all "created" events
-Events::listen('*.created', function($event) {
-    Analytics::track('created', $event->getData());
-});
-
-// Triggers:
-Events::dispatch('user.created');  // ✓
-Events::dispatch('post.created');  // ✓
-Events::dispatch('order.created'); // ✓
-```
-
-### Complex Wildcards
-
-```php
-// Listen to all model events
-Events::listen('model.*', function($event) {
-    Cache::flush('models');
-});
-
-// Listen to all admin actions
-Events::listen('admin.*.action', function($event) {
-    AuditLog::record($event);
-});
-```
-
-### Wildcard Priority
-
-```php
-Events::listen('user.*', function($event) {
-    echo "Low priority wildcard";
-}, 50);
-
-Events::listen('user.*', function($event) {
-    echo "High priority wildcard";
-}, 10);
-
-Events::listen('user.login', function($event) {
-    echo "Specific event listener";
-}, 20);
-
-// Order: High priority wildcard → Specific → Low priority wildcard
-```
-
----
-
-## Event Middleware
-
-### Adding Middleware
-
-```php
-// Log all events
-Events::middleware(function($event) {
-    Logger::debug('Event: ' . $event->getName());
-    return $event;
-}, 10);
-
-// Modify event data
-Events::middleware(function($event) {
-    $event->set('timestamp', microtime(true));
-    $event->set('ip', $_SERVER['REMOTE_ADDR']);
-    return $event;
-}, 20);
-
-// Validate event
-Events::middleware(function($event) {
-    if (!$event->get('user_id')) {
-        throw new Exception('user_id required');
-    }
-    return $event;
-}, 5);
-```
-
-### Authentication Middleware
-
-```php
-Events::middleware(function($event) {
-    // Only allow events from authenticated users
-    if (!Auth::check() && strpos($event->getName(), 'admin.') === 0) {
-        throw new Exception('Unauthorized');
-    }
-    return $event;
-});
-```
-
-### Rate Limiting Middleware
-
-```php
-Events::middleware(function($event) {
-    $key = 'event:' . $event->getName();
-    
-    if (RateLimit::tooManyAttempts($key, 100)) {
-        $event->stopPropagation();
-    }
-    
-    RateLimit::hit($key);
-    return $event;
-});
-```
-
----
-
-## Queued Events
-
-### Queue Events
-
-```php
-// Queue event instead of dispatching immediately
-Events::queue('email.send', [
-    'to' => 'user@example.com',
-    'subject' => 'Welcome'
-]);
-
-Events::queue('report.generate', [
-    'user_id' => 123
-]);
-
-// Flush queue (process all queued events)
-Events::flush();
-```
-
-### Background Processing
-
-```php
-// In your application
-Events::queue('order.created', ['order' => $order]);
-Events::queue('inventory.update', ['items' => $items]);
-
-// At the end of request or in cron job
-register_shutdown_function(function() {
-    Events::flush();
-});
-```
-
-### Queued Event Use Cases
-
-```php
-// Heavy operations
-Events::queue('image.resize', ['path' => $imagePath]);
-Events::queue('video.transcode', ['video_id' => $id]);
-
-// Batch operations
-foreach ($users as $user) {
-    Events::queue('email.send', ['user' => $user]);
-}
-Events::flush(); // Send all at once
-
-// Non-critical notifications
-Events::queue('notification.push', ['message' => $message]);
-```
-
----
-
-## Async Events
-
-### Setting Up Async Handler
-
-```php
-// Define how async events should be handled
-Events::asyncHandler('email.send', function($event, $payload) {
-    // Option 1: Use exec to run in background
-    $command = "php background-worker.php '{$event}' '" . 
-               json_encode($payload) . "' > /dev/null 2>&1 &";
-    exec($command);
-});
-
-Events::asyncHandler('report.generate', function($event, $payload) {
-    // Option 2: Add to job queue (Redis, Beanstalkd, etc.)
-    Queue::push('ReportJob', $payload);
-});
-```
-
-### Dispatching Async Events
-
-```php
-// This will run in background
-Events::dispatchAsync('email.send', [
-    'to' => 'user@example.com',
-    'subject' => 'Your Report is Ready'
-]);
-
-// Main script continues immediately
-echo "Email queued for sending";
-```
-
-### Async Event Examples
-
-```php
-// Image processing
-Events::dispatchAsync('image.process', [
-    'path' => $uploadedFile,
-    'sizes' => ['thumb', 'medium', 'large']
-]);
-
-// API webhook
-Events::dispatchAsync('webhook.call', [
-    'url' => 'https://api.example.com/webhook',
-    'data' => $orderData
-]);
-
-// Analytics
-Events::dispatchAsync('analytics.track', [
-    'event' => 'purchase',
-    'user_id' => $user->id,
-    'amount' => $total
-]);
-```
-
----
-
-## Event History
-
-### Enable History
-
-```php
-// Enable event history tracking
-Events::enableHistory(true);
-
-// Dispatch some events
-Events::dispatch('user.login', ['user_id' => 123]);
-Events::dispatch('page.view', ['page' => '/home']);
-Events::dispatch('user.logout', ['user_id' => 123]);
-```
-
-### View History
-
-```php
-// Get all history
-$history = Events::getHistory();
-
-/*
-[
-    [
-        'event' => 'user.login',
-        'timestamp' => 1704470400.123,
-        'payload' => ['user_id' => 123]
-    ],
-    [
-        'event' => 'page.view',
-        'timestamp' => 1704470401.456,
-        'payload' => ['page' => '/home']
-    ],
-    ...
-]
-*/
-
-// Get history for specific event
-$loginHistory = Events::getHistory('user.login');
-```
-
-### Replay Events
-
-```php
-// Replay all events
-Events::replay();
-
-// Replay specific event
-Events::replay('user.login');
-```
-
-### Clear History
-
-```php
-Events::clearHistory();
-```
-
-### History Use Cases
-
-```php
-// Debugging
-Events::enableHistory(true);
-// ... run application ...
-$history = Events::getHistory();
-print_r($history); // See all events that fired
-
-// Event sourcing
-Events::enableHistory(true);
-// ... application runs ...
-// Save history to database
-DB::insert('event_log', Events::getHistory());
-
-// Testing
-Events::enableHistory(true);
-runTest();
-$history = Events::getHistory('order.created');
-assert(count($history) === 1);
-```
-
----
-
-## System Events
-
-### Available System Events
-
-```php
-const PRE_SYSTEM                      = 'pre_system';
-const BEFORE_CONTROLLER_CONSTRUCTOR   = 'before_controller_constructor';
-const BEFORE_CONTROLLER_METHOD        = 'before_controller_method';
-const AFTER_CONTROLLER_METHOD         = 'after_controller_method';
-const POST_SYSTEM                     = 'post_system';
-const EXCEPTION_THROWN                = 'exception_thrown';
-const BEFORE_RENDER                   = 'before_render';
-const AFTER_RENDER                    = 'after_render';
-const CACHE_HIT                       = 'cache_hit';
-const CACHE_MISS                      = 'cache_miss';
-const DB_QUERY                        = 'db_query';
-const USER_LOGIN                      = 'user_login';
-const USER_LOGOUT                     = 'user_logout';
-const MODEL_CREATED                   = 'model_created';
-const MODEL_UPDATED                   = 'model_updated';
-const MODEL_DELETED                   = 'model_deleted';
+Events::PRE_SYSTEM              // Sistem başlangıcı
+Events::BEFORE_CONTROLLER       // Controller öncesi
+Events::AFTER_CONTROLLER        // Controller sonrası
+Events::POST_SYSTEM             // Sistem sonu
+Events::EXCEPTION_THROWN        // Exception atıldığında
+Events::BEFORE_RENDER           // Render öncesi
+Events::AFTER_RENDER            // Render sonrası
+Events::USER_LOGIN              // Kullanıcı girişi
+Events::USER_LOGOUT             // Kullanıcı çıkışı
+Events::MODEL_CREATED           // Model oluşturuldu
+Events::MODEL_UPDATED           // Model güncellendi
+Events::MODEL_DELETED           // Model silindi
 ```
 
 ### System Event Helpers
 
 ```php
-// Pre-system
-Events::triggerPreSystem(['request' => $_REQUEST]);
-
-// Exception handling
-try {
-    // code
-} catch (Exception $e) {
-    Events::triggerExceptionThrown($e);
-}
-
-// Cache events
-$value = Cache::get('key');
-if ($value) {
-    Events::triggerCacheHit('key', $value);
-} else {
-    Events::triggerCacheMiss('key');
-}
-
-// Database queries
-Events::triggerDbQuery($sql, $executionTime);
-
-// User events
+// Framework tarafından otomatik tetiklenir
+Events::triggerPreSystem($data);
+Events::triggerBeforeController($controller);
+Events::triggerAfterController($result);
+Events::triggerExceptionThrown($exception);
 Events::triggerUserLogin($user);
-Events::triggerUserLogout($user);
-
-// Model events
 Events::triggerModelCreated($model);
 Events::triggerModelUpdated($model, $changes);
-Events::triggerModelDeleted($model);
 ```
 
-### Listening to System Events
+### System Event'leri Dinleme
 
 ```php
-// Log all database queries
-Events::listen(Events::DB_QUERY, function($event) {
-    $query = $event->get('query');
-    $time = $event->get('time');
-    Logger::debug("Query: $query (${time}ms)");
+// Exception'ları logla
+Events::listen(Events::EXCEPTION_THROWN, function($exception) {
+    error_log($exception->getMessage());
 });
 
-// Track exceptions
-Events::listen(Events::EXCEPTION_THROWN, function($event) {
-    $exception = $event->get('exception');
-    Sentry::captureException($exception);
+// Kullanıcı aktivitelerini takip et
+Events::listen(Events::USER_LOGIN, function($user) {
+    $user->last_login = time();
+    $user->save();
 });
 
-// Cache monitoring
-Events::listen('cache.*', function($event) {
-    $key = $event->get('key');
-    Metrics::increment('cache.' . $event->getName());
-});
-
-// User activity tracking
-Events::listen('user.*', function($event) {
-    $user = $event->get('user');
-    ActivityLog::record($user->id, $event->getName());
+// Model değişikliklerini logla
+Events::listen(Events::MODEL_UPDATED, function($model, $changes) {
+    Logger::info("Model updated", [
+        'model' => get_class($model),
+        'id' => $model->id,
+        'changes' => $changes
+    ]);
 });
 ```
 
----
+## Pratik Örnekler
 
-## Advanced Features
-
-### Check for Listeners
+### E-ticaret Sistemi
 
 ```php
-if (Events::hasListeners('order.created')) {
-    Events::dispatch('order.created', $order);
+// Sipariş oluşturulduğunda
+Events::listen('order.created', function($order) {
+    // Email gönder
+    Mailer::send($order->email, 'Sipariş Onayı', $order);
+}, 10);
+
+Events::listen('order.created', function($order) {
+    // Stok güncelle
+    foreach ($order->items as $item) {
+        Product::find($item->product_id)->decrementStock($item->quantity);
+    }
+}, 20);
+
+Events::listen('order.created', function($order) {
+    // Admin'e bildir
+    Mailer::send('admin@site.com', 'Yeni Sipariş', $order);
+}, 30);
+
+// Sipariş oluştur ve event'i tetikle
+$order = Order::create($orderData);
+Events::dispatch('order.created', $order);
+```
+
+### Blog Sistemi
+
+```php
+// Makale yayınlandığında
+Events::listen('post.published', function($post) {
+    // Cache temizle
+    Cache::forget('recent_posts');
+    Cache::forget('post_' . $post->id);
+});
+
+Events::listen('post.published', function($post) {
+    // Sosyal medyada paylaş
+    SocialMedia::share($post);
+});
+
+Events::listen('post.published', function($post) {
+    // Abone olanlara bildir
+    Newsletter::notify($post);
+});
+
+// Makale yayınla
+$post->status = 'published';
+$post->save();
+Events::dispatch('post.published', $post);
+```
+
+### Kullanıcı Sistemi
+
+```php
+// Kullanıcı kaydı
+Events::listen('user.registered', 'UserController@sendWelcomeEmail', 10);
+Events::listen('user.registered', 'UserController@createProfile', 20);
+Events::listen('user.registered', 'AnalyticsController@trackSignup', 30);
+
+// Kullanıcı girişi
+Events::listen('user.login', function($user) {
+    $user->last_login = time();
+    $user->login_count++;
+    $user->save();
+});
+
+// Kullanıcı çıkışı
+Events::listen('user.logout', function($user) {
+    Session::destroy();
+    Logger::info("User {$user->id} logged out");
+});
+```
+
+## Utility Methods
+
+```php
+// Listener var mı kontrol et
+if (Events::hasListeners('user.registered')) {
+    Events::dispatch('user.registered', $user);
 }
-```
 
-### Count Listeners
-
-```php
-$count = Events::countListeners('user.registered');
-echo "Registered handlers: $count";
-```
-
-### Get All Listeners
-
-```php
+// Listener'ları getir
 $listeners = Events::getListeners('user.login');
-foreach ($listeners as $listener) {
-    // Inspect listener
-}
-```
 
-### Get All Events
-
-```php
-$events = Events::getEvents();
-// ['user.registered', 'user.login', 'order.created', ...]
-```
-
-### Event Statistics
-
-```php
-$stats = Events::getStats();
-
-/*
-[
-    'total_events' => 15,
-    'total_listeners' => 42,
-    'wildcard_patterns' => 3,
-    'subscribers' => 2,
-    'queued_events' => 5,
-    'history_count' => 128,
-    'history_enabled' => true,
-    'middlewares' => 3
-]
-*/
-```
-
-### Clear All Events
-
-```php
-// Remove all listeners, history, queue
+// Tüm event'leri temizle
 Events::clear();
 ```
 
----
-
-## Best Practices
-
-### 1. Use Event Objects for Complex Data
+## Class@method Listener
 
 ```php
-// Bad: Using arrays
-Events::dispatch('order.created', [
-    'order_id' => 123,
-    'user_id' => 456,
-    'total' => 99.99,
-    'items' => [...]
-]);
-
-// Good: Using event objects
-class OrderCreatedEvent extends Event
+class UserEventHandler
 {
-    private $order;
-    
-    public function __construct(Order $order)
+    public function onRegistered($user)
     {
-        parent::__construct('order.created');
-        $this->order = $order;
+        // Hoş geldin emaili gönder
+        Mailer::send($user->email, 'Hoş Geldiniz!');
     }
     
-    public function getOrder(): Order
+    public function onLogin($user)
     {
-        return $this->order;
-    }
-}
-
-Events::dispatch(new OrderCreatedEvent($order));
-```
-
-### 2. Use Subscribers for Related Events
-
-```php
-// Bad: Registering many listeners individually
-Events::listen('user.registered', 'sendWelcomeEmail');
-Events::listen('user.registered', 'createProfile');
-Events::listen('user.registered', 'sendToAnalytics');
-Events::listen('user.login', 'updateLastLogin');
-Events::listen('user.logout', 'clearSession');
-
-// Good: Using subscriber
-class UserEventSubscriber implements EventSubscriberInterface
-{
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            'user.registered' => [
-                ['sendWelcomeEmail', 10],
-                ['createProfile', 20],
-                ['sendToAnalytics', 30]
-            ],
-            'user.login' => 'updateLastLogin',
-            'user.logout' => 'clearSession'
-        ];
-    }
-    
-    // ... methods
-}
-```
-
-### 3. Use Wildcards for Cross-cutting Concerns
-
-```php
-// Logging all model events
-Events::listen('model.*', function($event) {
-    AuditLog::record($event);
-});
-
-// Analytics for all user actions
-Events::listen('user.*', function($event) {
-    Analytics::track($event->getName(), $event->getData());
-});
-
-// Cache invalidation
-Events::listen('*.updated', function($event) {
-    Cache::forget($event->get('model'));
-});
-```
-
-### 4. Queue Heavy Operations
-
-```php
-// Bad: Blocking main request
-Events::listen('order.created', function($event) {
-    generatePdfInvoice($event->get('order')); // Slow!
-});
-
-// Good: Queue for background processing
-Events::listen('order.created', function($event) {
-    Events::queue('invoice.generate', ['order' => $event->get('order')]);
-});
-```
-
-### 5. Use Middleware for Common Logic
-
-```php
-// Add timestamp to all events
-Events::middleware(function($event) {
-    $event->set('processed_at', microtime(true));
-    return $event;
-});
-
-// Add user context to all events
-Events::middleware(function($event) {
-    if (Auth::check()) {
-        $event->set('user_id', Auth::id());
-    }
-    return $event;
-});
-```
-
-### 6. Name Events Consistently
-
-```php
-// Good naming convention:
-// entity.action or entity.action.status
-
-'user.registered'
-'user.login'
-'user.logout'
-'user.deleted'
-
-'order.created'
-'order.updated'
-'order.cancelled'
-'order.payment.completed'
-'order.payment.failed'
-
-'email.sent'
-'email.failed'
-```
-
-### 7. Use Priority Wisely
-
-```php
-// Critical first (low number)
-Events::listen('user.login', 'validateIpAddress', 5);
-Events::listen('user.login', 'checkBan', 10);
-
-// Normal processing
-Events::listen('user.login', 'updateLastLogin', 50);
-Events::listen('user.login', 'logActivity', 50);
-
-// Cleanup last (high number)
-Events::listen('user.login', 'cleanupSessions', 100);
-```
-
----
-
-## Performance
-
-### Optimization Tips
-
-1. **Use Specific Events Instead of Wildcards**
-```php
-// Slower: Checks pattern for every event
-Events::listen('*', $listener);
-
-// Faster: Direct match
-Events::listen('user.login', $listener);
-```
-
-2. **Limit Event History in Production**
-```php
-if (ENVIRONMENT === 'development') {
-    Events::enableHistory(true);
-}
-```
-
-3. **Queue Heavy Listeners**
-```php
-Events::listen('image.uploaded', function($event) {
-    Events::queue('image.process', $event->getData());
-});
-```
-
-4. **Use Subscribers for Organization**
-```php
-// Registers multiple listeners efficiently
-Events::subscribe(new UserEventSubscriber());
-```
-
-### Performance Benchmarks
-
-```
-Test: 1000 events dispatched
-
-No listeners:
-- Time: ~2ms
-- Memory: 100KB
-
-10 listeners per event:
-- Time: ~50ms
-- Memory: 500KB
-
-With middleware (3):
-- Time: ~60ms
-- Memory: 550KB
-
-With history enabled:
-- Time: ~70ms
-- Memory: 1MB
-```
-
----
-
-## Complete Example
-
-```php
-<?php
-
-// ======================================
-// Event Classes
-// ======================================
-
-class UserRegisteredEvent extends Event
-{
-    private $user;
-    
-    public function __construct($user)
-    {
-        parent::__construct('user.registered');
-        $this->user = $user;
-    }
-    
-    public function getUser()
-    {
-        return $this->user;
-    }
-}
-
-// ======================================
-// Event Subscribers
-// ======================================
-
-class UserEventSubscriber implements EventSubscriberInterface
-{
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            'user.registered' => [
-                ['sendWelcomeEmail', 10],
-                ['createProfile', 20],
-                ['notifyAdmin', 30]
-            ],
-            'user.login' => 'onLogin',
-            'user.logout' => 'onLogout'
-        ];
-    }
-    
-    public function sendWelcomeEmail($event)
-    {
-        $user = $event->getUser();
-        Mailer::send($user->email, 'Welcome!', [
-            'name' => $user->name
-        ]);
-    }
-    
-    public function createProfile($event)
-    {
-        $user = $event->getUser();
-        Profile::create([
-            'user_id' => $user->id
-        ]);
-    }
-    
-    public function notifyAdmin($event)
-    {
-        $user = $event->getUser();
-        Mailer::send('admin@example.com', 'New User', [
-            'user' => $user
-        ]);
-    }
-    
-    public function onLogin($event)
-    {
-        $user = $event->get('user');
+        // Son giriş zamanını güncelle
         $user->last_login = time();
         $user->save();
     }
-    
-    public function onLogout($event)
-    {
-        Session::destroy();
-    }
 }
 
-// ======================================
-// Bootstrap
-// ======================================
+// Listener'ları kaydet
+Events::listen('user.registered', 'UserEventHandler@onRegistered');
+Events::listen('user.login', 'UserEventHandler@onLogin');
+```
 
-// Enable history in development
-if (ENVIRONMENT === 'development') {
-    Events::enableHistory(true);
-}
+## Exception Handling
 
-// Add middleware
-Events::middleware(function($event) {
-    $event->set('timestamp', microtime(true));
-    $event->set('ip', $_SERVER['REMOTE_ADDR']);
-    return $event;
-}, 10);
-
-// Subscribe to events
-Events::subscribe(new UserEventSubscriber());
-
-// Wildcard listeners
-Events::listen('user.*', function($event) {
-    Logger::info($event->getName(), $event->getData());
+```php
+Events::listen('risky.operation', function($data) {
+    // Bu hata verse bile diğer listener'lar çalışır
+    throw new Exception('Something went wrong');
 });
 
-Events::listen('*.created', function($event) {
-    Cache::flush();
+Events::listen('risky.operation', function($data) {
+    // Bu çalışmaya devam eder
+    Logger::info('Operation completed');
 });
 
-// System event listeners
-Events::listen(Events::EXCEPTION_THROWN, function($event) {
-    $exception = $event->get('exception');
-    Sentry::captureException($exception);
-});
+// Hata loglanır ama uygulama durmuyor
+Events::dispatch('risky.operation', $data);
+```
 
-Events::listen(Events::DB_QUERY, function($event) {
-    if ($event->get('time') > 100) {
-        Logger::warning('Slow query', [
-            'query' => $event->get('query'),
-            'time' => $event->get('time')
-        ]);
+## Event Durdurma
+
+```php
+Events::listen('payment.process', function($payment) {
+    if ($payment->amount > 10000) {
+        // Büyük ödemeler için manuel onay gerekli
+        return false; // Event'i durdur
     }
 });
 
-// ======================================
-// Usage in Application
-// ======================================
+Events::listen('payment.process', function($payment) {
+    // Bu çalışmaz eğer amount > 10000
+    processPayment($payment);
+});
+```
 
-// User registration
-$user = User::create($_POST);
-Events::dispatch(new UserRegisteredEvent($user));
+## Best Practices
 
-// User login
-Events::dispatch('user.login', ['user' => $user]);
+### 1. Event İsimlendirme
 
-// Order created (with queued processing)
-Events::dispatch('order.created', ['order' => $order]);
-Events::queue('invoice.generate', ['order' => $order]);
-Events::queue('email.receipt', ['order' => $order]);
+```php
+// İyi: entity.action formatı
+'user.registered'
+'user.login'
+'order.created'
+'post.published'
+'payment.completed'
 
-// Flush queued events at shutdown
-register_shutdown_function(function() {
-    Events::flush();
+// Kötü: Tutarsız isimlendirme
+'userRegistered'
+'new_order'
+'PostPublish'
+```
+
+### 2. Priority Kullanımı
+
+```php
+// Kritik işlemler önce (1-5)
+Events::listen('user.login', 'Security@validateIp', 1);
+Events::listen('user.login', 'Security@checkBan', 2);
+
+// Normal işlemler (10 - varsayılan)
+Events::listen('user.login', 'User@updateLastLogin');
+Events::listen('user.login', 'Logger@logActivity');
+
+// Temizlik işlemleri son (15-20)
+Events::listen('user.login', 'Session@cleanup', 20);
+```
+
+### 3. Basit Tutun
+
+```php
+// İyi: Basit ve anlaşılır
+Events::listen('order.created', function($order) {
+    sendOrderEmail($order);
 });
 
-// View statistics
-if (ENVIRONMENT === 'development') {
-    print_r(Events::getStats());
-    print_r(Events::getHistory());
-}
-```
-
----
-
-## Migration from Old Events
-
-### Old Code
-
-```php
-Events::on('user.registered', function($data) {
-    $user = $data; // Direct data
-    sendEmail($user);
+// Kötü: Fazla karmaşık
+Events::listen('order.created', function($order) {
+    if ($order->total > 100 && $order->user->vip && date('H') < 18) {
+        // Karmaşık mantık
+    }
 });
-
-Events::trigger('user.registered', $user);
 ```
 
-### New Code
+## Performans İpuçları
+
+1. **Gereksiz listener eklemeyin**
+2. **Ağır işlemleri queue'ya alın** 
+3. **Exception'ları handle edin**
+4. **Priority'yi gereksiz kullanmayın**
+
+## Sword Framework Entegrasyonu
+
+Events sınıfı Sword Framework'e entegre edilmiştir:
 
 ```php
-Events::listen('user.registered', function($event) {
-    $user = $event->get('user'); // Event object
-    sendEmail($user);
-});
+// Framework başlangıcında
+Events::triggerPreSystem();
 
-Events::dispatch('user.registered', ['user' => $user]);
+// Controller çalıştırılmadan önce
+Events::triggerBeforeController($controller);
 
-// Or with event object
-Events::dispatch(new UserRegisteredEvent($user));
+// Controller çalıştırıldıktan sonra
+Events::triggerAfterController($result);
+
+// View render edilmeden önce
+Events::triggerBeforeRender($viewData);
+
+// Sistem sonunda
+Events::triggerPostSystem();
 ```
+
+Bu sayede framework'ün her aşamasında event'leri dinleyebilir ve özel işlemler yapabilirsiniz.
 
 ---
 
-## Troubleshooting
-
-### Events Not Firing
-
-```php
-// Check if listeners are registered
-if (!Events::hasListeners('my.event')) {
-    echo "No listeners registered!";
-}
-
-// Check listener count
-echo Events::countListeners('my.event');
-
-// View all events
-print_r(Events::getEvents());
-```
-
-### Debugging Events
-
-```php
-// Enable history
-Events::enableHistory(true);
-
-// Run code
-// ...
-
-// Check what fired
-print_r(Events::getHistory());
-```
-
-### Performance Issues
-
-```php
-// Check stats
-$stats = Events::getStats();
-
-if ($stats['total_listeners'] > 100) {
-    echo "Too many listeners!";
-}
-
-// Disable history in production
-Events::enableHistory(false);
-```
-
----
-
-## License
-
-MIT License - See LICENSE file for details.
-
----
-
-## Credits
-
-Developed by **Tuncay TEKE** (https://www.tuncayteke.com.tr) 
-
-For Sword Framework - Sharp. Fast. Immortal.
+**Sword Framework** - Keskin. Hızlı. Ölümsüz.

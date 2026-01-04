@@ -1,575 +1,355 @@
 <?php
 
 /**
- * Sword Framework
+ * Sword Framework - Request
  * 
  * by Tuncay TEKE (https://www.tuncayteke.com.tr)
  *
- * Request sınıfı - HTTP isteklerini yönetir
+ * Basit ve etkili HTTP request yönetimi
+ * Keskin. Hızlı. Ölümsüz.
  */
 
 class Request
 {
     /**
-     * POST verileri
+     * Request data
      */
-    private $postData = [];
-
+    private $get = [];
+    private $post = [];
+    private $files = [];
+    private $server = [];
+    private $headers = [];
+    
     /**
-     * GET verileri
+     * URI components
      */
-    private $getData = [];
-
-    /**
-     * PUT verileri
-     */
-    private $putData = [];
-
-    /**
-     * DELETE verileri
-     */
-    private $deleteData = [];
-
-    /**
-     * Dosya verileri
-     */
-    private $fileData = [];
-
-    /**
-     * Header verileri
-     */
-    private $headerData = [];
-
-    /**
-     * Server verileri
-     */
-    private $serverData = [];
-
-    /**
-     * URI segmentleri
-     */
+    private $uri = null;
+    private $path = null;
     private $segments = [];
-
+    
     /**
-     * İstek gövdesi
+     * Request method
      */
-    private $body = null;
+    private $method = null;
+    
+    /**
+     * JSON data
+     */
+    private $json = null;
 
     /**
-     * Yapılandırıcı
+     * Constructor
      */
     public function __construct()
     {
-        $this->postData = $_POST;
-        $this->getData = $_GET;
-        $this->fileData = $_FILES;
-        $this->serverData = $_SERVER;
+        $this->get = $_GET;
+        $this->post = $_POST;
+        $this->files = $_FILES;
+        $this->server = $_SERVER;
+        
+        $this->parseHeaders();
+        $this->parseMethod();
+        $this->parseUri();
+        $this->parseJson();
+    }
 
-        // PUT ve DELETE verilerini al (JSON + form-urlencoded + multipart destekli)
-        if ($this->isPut() || $this->isDelete()) {
-            $input = file_get_contents('php://input');
-            $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
-
-            // 1. JSON kontrolü (en yaygın)
-            if (stripos($contentType, 'application/json') !== false) {
-                $data = json_decode($input, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $this->isPut() ? $this->putData = $data : $this->deleteData = $data;
-                }
-            }
-            // 2. Form-urlencoded kontrolü (PUT/DELETE form submit)
-            elseif (stripos($contentType, 'application/x-www-form-urlencoded') !== false || empty($contentType)) {
-                parse_str($input, $data);
-                $this->isPut() ? $this->putData = $data : $this->deleteData = $data;
-            }
-            // 3. Fallback: boşsa bile parse_str dene (bazı sunucular Content-Type göndermez)
-            elseif (empty($this->putData) && empty($this->deleteData)) {
-                parse_str($input, $data);
-                $this->isPut() ? $this->putData = $data : $this->deleteData = $data;
-            }
-        }
-
-        // Header verilerini al
-        $headers = [];
-        foreach ($_SERVER as $key => $value) {
+    /**
+     * Parse headers
+     */
+    private function parseHeaders()
+    {
+        $this->headers = [];
+        
+        foreach ($this->server as $key => $value) {
             if (strpos($key, 'HTTP_') === 0) {
-                $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
-                $headers[$header] = $value;
+                $header = str_replace('_', '-', substr($key, 5));
+                $this->headers[strtolower($header)] = $value;
             }
         }
-        $this->headerData = $headers;
-
-        // URI segmentlerini al
-        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $this->segments = explode('/', trim($uri, '/'));
-    }
-
-    /**
-     * İstek metodu POST mu?
-     *
-     * @return bool
-     */
-    public function isPost()
-    {
-        return $_SERVER['REQUEST_METHOD'] === 'POST';
-    }
-
-    /**
-     * POST verisi var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasPost($key)
-    {
-        return isset($this->postData[$key]);
-    }
-
-    /**
-     * Tüm POST verilerini döndürür
-     *
-     * @return array
-     */
-    public function posts()
-    {
-        return $this->postData;
-    }
-
-    /**
-     * Belirtilen POST verisini döndürür
-     *
-     * @param string $key Anahtar
-     * @param mixed $default Varsayılan değer
-     * @return mixed
-     */
-    public function post($key = null, $default = null)
-    {
-        if ($key === null) {
-            return $this->postData;
+        
+        // Content-Type
+        if (isset($this->server['CONTENT_TYPE'])) {
+            $this->headers['content-type'] = $this->server['CONTENT_TYPE'];
         }
-        return isset($this->postData[$key]) ? $this->postData[$key] : $default;
     }
 
     /**
-     * İstek metodu GET mi?
-     *
-     * @return bool
+     * Parse method
      */
+    private function parseMethod()
+    {
+        $this->method = $this->server['REQUEST_METHOD'] ?? 'GET';
+        
+        // Method spoofing
+        if ($this->method === 'POST' && isset($this->post['_method'])) {
+            $this->method = strtoupper($this->post['_method']);
+        }
+    }
+
+    /**
+     * Parse URI
+     */
+    private function parseUri()
+    {
+        $this->uri = $this->server['REQUEST_URI'] ?? '/';
+        $this->path = parse_url($this->uri, PHP_URL_PATH);
+        $this->segments = array_values(array_filter(explode('/', trim($this->path, '/'))));
+    }
+
+    /**
+     * Parse JSON data
+     */
+    private function parseJson()
+    {
+        if ($this->isJson()) {
+            $input = file_get_contents('php://input');
+            $this->json = json_decode($input, true);
+        }
+    }
+
+    // ============================================
+    // HTTP Method Checks
+    // ============================================
+
     public function isGet()
     {
-        return $_SERVER['REQUEST_METHOD'] === 'GET';
+        return $this->method === 'GET';
     }
 
-    /**
-     * GET verisi var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasGet($key)
+    public function isPost()
     {
-        return isset($this->getData[$key]);
+        return $this->method === 'POST';
     }
 
-    /**
-     * Tüm GET verilerini döndürür
-     *
-     * @return array
-     */
-    public function gets()
+    public function isPut()
     {
-        return $this->getData;
+        return $this->method === 'PUT';
     }
 
-    /**
-     * Belirtilen GET verisini döndürür
-     *
-     * @param string $key Anahtar
-     * @param mixed $default Varsayılan değer
-     * @return mixed
-     */
+    public function isDelete()
+    {
+        return $this->method === 'DELETE';
+    }
+
+    public function method()
+    {
+        return $this->method;
+    }
+
+    // ============================================
+    // Content Type Checks
+    // ============================================
+
+    public function isJson()
+    {
+        $contentType = $this->header('content-type');
+        return $contentType && stripos($contentType, 'application/json') !== false;
+    }
+
+    public function isAjax()
+    {
+        return $this->header('x-requested-with') === 'XMLHttpRequest';
+    }
+
+    public function wantsJson()
+    {
+        $accept = $this->header('accept');
+        return $accept && stripos($accept, 'application/json') !== false;
+    }
+
+    // ============================================
+    // Input Methods
+    // ============================================
+
+    public function input($key = null, $default = null)
+    {
+        $all = array_merge($this->get, $this->post);
+        
+        if ($this->json) {
+            $all = array_merge($all, $this->json);
+        }
+        
+        if ($key === null) {
+            return $all;
+        }
+        
+        return $all[$key] ?? $default;
+    }
+
     public function get($key = null, $default = null)
     {
         if ($key === null) {
-            return $this->getData;
+            return $this->get;
         }
-        return isset($this->getData[$key]) ? $this->getData[$key] : $default;
+        return $this->get[$key] ?? $default;
     }
 
-    /**
-     * İstek metodu PUT mu?
-     *
-     * @return bool
-     */
-    public function isPut()
-    {
-        return $_SERVER['REQUEST_METHOD'] === 'PUT' ||
-            ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_method']) && strtoupper($_POST['_method']) === 'PUT');
-    }
-
-    /**
-     * PUT verisi var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasPut($key)
-    {
-        return isset($this->putData[$key]);
-    }
-
-    /**
-     * Tüm PUT verilerini döndürür
-     *
-     * @return array
-     */
-    public function puts()
-    {
-        return $this->putData;
-    }
-
-    /**
-     * Belirtilen PUT verisini döndürür
-     *
-     * @param string $key Anahtar
-     * @param mixed $default Varsayılan değer
-     * @return mixed
-     */
-    public function put($key = null, $default = null)
+    public function post($key = null, $default = null)
     {
         if ($key === null) {
-            return $this->putData;
+            return $this->post;
         }
-        return isset($this->putData[$key]) ? $this->putData[$key] : $default;
+        return $this->post[$key] ?? $default;
     }
 
-    /**
-     * İstek metodu DELETE mi?
-     *
-     * @return bool
-     */
-    public function isDelete()
-    {
-        return $_SERVER['REQUEST_METHOD'] === 'DELETE' ||
-            ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_method']) && strtoupper($_POST['_method']) === 'DELETE');
-    }
-
-    /**
-     * DELETE verisi var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasDelete($key)
-    {
-        return isset($this->deleteData[$key]);
-    }
-
-    /**
-     * Tüm DELETE verilerini döndürür
-     *
-     * @return array
-     */
-    public function deletes()
-    {
-        return $this->deleteData;
-    }
-
-    /**
-     * Belirtilen DELETE verisini döndürür
-     *
-     * @param string $key Anahtar
-     * @param mixed $default Varsayılan değer
-     * @return mixed
-     */
-    public function delete($key = null, $default = null)
+    public function json($key = null, $default = null)
     {
         if ($key === null) {
-            return $this->deleteData;
+            return $this->json;
         }
-        return isset($this->deleteData[$key]) ? $this->deleteData[$key] : $default;
+        return $this->json[$key] ?? $default;
     }
 
-    /**
-     * İstek AJAX mı?
-     *
-     * @return bool
-     */
-    public function isAjax()
+    public function has($key)
     {
-        return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $value = $this->input($key);
+        return $value !== null && $value !== '';
     }
 
-    /**
-     * İstek AJAX GET mi?
-     *
-     * @return bool
-     */
-    public function isAjaxGet()
+    public function only(...$keys)
     {
-        return $this->isAjax() && $this->isGet();
-    }
-
-    /**
-     * İstek AJAX POST mu?
-     *
-     * @return bool
-     */
-    public function isAjaxPost()
-    {
-        return $this->isAjax() && $this->isPost();
-    }
-
-    /**
-     * AJAX verilerini döndürür
-     *
-     * @return array
-     */
-    public function ajax()
-    {
-        if ($this->isAjaxGet()) {
-            return $this->getData;
-        } elseif ($this->isAjaxPost()) {
-            return $this->postData;
-        } elseif ($this->isAjax() && $this->isPut()) {
-            return $this->putData;
-        } elseif ($this->isAjax() && $this->isDelete()) {
-            return $this->deleteData;
+        $data = $this->input();
+        $result = [];
+        
+        foreach ($keys as $key) {
+            if (isset($data[$key])) {
+                $result[$key] = $data[$key];
+            }
         }
-        return [];
+        
+        return $result;
     }
 
-    /**
-     * URI segmentlerini döndürür
-     *
-     * @return array
-     */
+    public function except(...$keys)
+    {
+        $data = $this->input();
+        
+        foreach ($keys as $key) {
+            unset($data[$key]);
+        }
+        
+        return $data;
+    }
+
+    // ============================================
+    // File Handling
+    // ============================================
+
+    public function hasFile($key)
+    {
+        return isset($this->files[$key]) && 
+               $this->files[$key]['error'] === UPLOAD_ERR_OK &&
+               $this->files[$key]['size'] > 0;
+    }
+
+    public function file($key)
+    {
+        if (!$this->hasFile($key)) {
+            return null;
+        }
+        
+        return $this->files[$key];
+    }
+
+    // ============================================
+    // Headers
+    // ============================================
+
+    public function header($key = null, $default = null)
+    {
+        if ($key === null) {
+            return $this->headers;
+        }
+        
+        $key = strtolower(str_replace('_', '-', $key));
+        return $this->headers[$key] ?? $default;
+    }
+
+    public function hasHeader($key)
+    {
+        $key = strtolower(str_replace('_', '-', $key));
+        return isset($this->headers[$key]);
+    }
+
+    public function bearerToken()
+    {
+        $header = $this->header('authorization');
+        
+        if ($header && strpos($header, 'Bearer ') === 0) {
+            return substr($header, 7);
+        }
+        
+        return null;
+    }
+
+    // ============================================
+    // Server Info
+    // ============================================
+
+    public function ip()
+    {
+        return $this->server['HTTP_X_FORWARDED_FOR'] ??
+               $this->server['HTTP_CLIENT_IP'] ??
+               $this->server['REMOTE_ADDR'] ??
+               '0.0.0.0';
+    }
+
+    public function userAgent()
+    {
+        return $this->server['HTTP_USER_AGENT'] ?? null;
+    }
+
+    public function isSecure()
+    {
+        return (!empty($this->server['HTTPS']) && $this->server['HTTPS'] !== 'off') ||
+               (!empty($this->server['HTTP_X_FORWARDED_PROTO']) && $this->server['HTTP_X_FORWARDED_PROTO'] === 'https');
+    }
+
+    // ============================================
+    // URL Methods
+    // ============================================
+
+    public function url()
+    {
+        $scheme = $this->isSecure() ? 'https' : 'http';
+        $host = $this->server['HTTP_HOST'] ?? 'localhost';
+        return $scheme . '://' . $host . $this->path;
+    }
+
+    public function fullUrl()
+    {
+        return $this->url() . ($this->server['QUERY_STRING'] ? '?' . $this->server['QUERY_STRING'] : '');
+    }
+
+    public function path()
+    {
+        return $this->path;
+    }
+
     public function segments()
     {
         return $this->segments;
     }
 
-    /**
-     * Belirtilen segment var mı?
-     *
-     * @param string $segment Segment
-     * @return bool
-     */
-    public function hasSegment($segment)
+    public function segment($index, $default = null)
     {
-        if (strpos($segment, ':') === 0) {
-            // Placeholder segment kontrolü
-            $placeholderName = substr($segment, 1);
-            foreach ($this->segments as $seg) {
-                if (strpos($seg, $placeholderName) !== false) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        return in_array($segment, $this->segments);
+        return $this->segments[$index] ?? $default;
     }
 
-    /**
-     * Dosya var mı?
-     *
-     * @return bool
-     */
-    public function hasFiles()
+    // ============================================
+    // Utility Methods
+    // ============================================
+
+    public function all()
     {
-        return !empty($this->fileData);
+        return $this->input();
     }
 
-    /**
-     * Belirtilen dosya var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasFile($key)
-    {
-        return isset($this->fileData[$key]) && $this->fileData[$key]['error'] !== UPLOAD_ERR_NO_FILE;
-    }
-
-    /**
-     * Tüm dosya verilerini döndürür
-     *
-     * @return array
-     */
-    public function files()
-    {
-        return $this->fileData;
-    }
-
-    /**
-     * Belirtilen dosya verisini döndürür
-     *
-     * @param string $key Anahtar
-     * @return array|null
-     */
-    public function file($key = null)
+    public function server($key = null, $default = null)
     {
         if ($key === null) {
-            return $this->fileData;
+            return $this->server;
         }
-        return isset($this->fileData[$key]) ? $this->fileData[$key] : null;
-    }
-
-    /**
-     * Tüm header verilerini döndürür
-     *
-     * @return array
-     */
-    public function header()
-    {
-        return $this->headerData;
-    }
-
-    /**
-     * Belirtilen header var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasHeader($key)
-    {
-        return isset($this->headerData[$key]);
-    }
-
-    /**
-     * Tüm server verilerini döndürür
-     *
-     * @return array
-     */
-    public function server()
-    {
-        return $this->serverData;
-    }
-
-    /**
-     * Belirtilen server verisi var mı?
-     *
-     * @param string $key Anahtar
-     * @return bool
-     */
-    public function hasServer($key)
-    {
-        return isset($this->serverData[$key]);
-    }
-
-    /**
-     * Tüm input verilerini döndürür (GET, POST, PUT, DELETE, JSON)
-     *
-     * @param string|null $key Anahtar
-     * @param mixed $default Varsayılan değer
-     * @return mixed
-     */
-    public function input($key = null, $default = null)
-    {
-        $data = array_merge(
-            $this->getData,
-            $this->postData,
-            $this->putData,
-            $this->deleteData
-        );
-
-        if ($key === null) return $data;
-        return $data[$key] ?? $default;
-    }
-
-    /**
-     * Kullanıcı bilgilerini döndürür
-     *
-     * @param string|null $key Anahtar
-     * @return mixed
-     */
-    public function user($key = null)
-    {
-        $user = [
-            'ip' => $this->userIp(),
-            'agent' => $this->userAgent(),
-            'proxy' => $this->userProxy()
-        ];
-
-        if ($key === null) {
-            return $user;
-        }
-
-        return isset($user[$key]) ? $user[$key] : null;
-    }
-
-    /**
-     * Kullanıcı agent bilgisini döndürür
-     *
-     * @return string|null
-     */
-    public function userAgent()
-    {
-        return isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : null;
-    }
-
-    /**
-     * Kullanıcı IP adresini döndürür
-     *
-     * @return string|null
-     */
-    public function userIp()
-    {
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            return $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            return $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } else {
-            return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : null;
-        }
-    }
-
-    /**
-     * Kullanıcı proxy bilgilerini döndürür
-     *
-     * @return array
-     */
-    public function userProxy()
-    {
-        $proxy = [];
-
-        if (isset($_SERVER['HTTP_CLIENT_IP'])) {
-            $proxy['HTTP_CLIENT_IP'] = $_SERVER['HTTP_CLIENT_IP'];
-        }
-
-        if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $proxy['HTTP_X_FORWARDED_FOR'] = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        }
-
-        if (isset($_SERVER['HTTP_X_FORWARDED'])) {
-            $proxy['HTTP_X_FORWARDED'] = $_SERVER['HTTP_X_FORWARDED'];
-        }
-
-        if (isset($_SERVER['HTTP_FORWARDED_FOR'])) {
-            $proxy['HTTP_FORWARDED_FOR'] = $_SERVER['HTTP_FORWARDED_FOR'];
-        }
-
-        if (isset($_SERVER['HTTP_FORWARDED'])) {
-            $proxy['HTTP_FORWARDED'] = $_SERVER['HTTP_FORWARDED'];
-        }
-
-        if (isset($_SERVER['HTTP_VIA'])) {
-            $proxy['HTTP_VIA'] = $_SERVER['HTTP_VIA'];
-        }
-
-        return $proxy;
-    }
-
-    /**
-     * İstek gövdesini döndürür
-     *
-     * @return string
-     */
-    public function getBody()
-    {
-        if ($this->body === null) {
-            $this->body = file_get_contents('php://input');
-        }
-        return $this->body;
+        return $this->server[$key] ?? $default;
     }
 }

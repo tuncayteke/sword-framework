@@ -1,387 +1,678 @@
-# Request Class
+# Request - Sword Framework
 
-HTTP isteklerini yönetir. GET, POST, PUT, DELETE, dosya yükleme ve AJAX isteklerini destekler.
+**Basit ve etkili HTTP request yönetimi**  
+Keskin. Hızlı. Ölümsüz.
+
+## Özellikler
+
+- ✅ **HTTP Method Detection** - GET, POST, PUT, DELETE
+- ✅ **Input Handling** - get(), post(), json(), input()
+- ✅ **File Upload** - hasFile(), file()
+- ✅ **Headers** - header(), bearerToken()
+- ✅ **URL/Path** - url(), path(), segments()
+- ✅ **Security** - isSecure(), ip()
+- ✅ **Content Type** - isJson(), isAjax(), wantsJson()
+- ✅ **Utility** - has(), only(), except()
 
 ## Temel Kullanım
+
+### Request Instance
 
 ```php
 $request = new Request();
 
-// Veya Sword üzerinden
+// Sword Framework'de
 $request = Sword::request();
 ```
 
-## HTTP Metodları
+### Input Alma
 
-### GET İstekleri
+```php
+// Belirli input
+$name = $request->input('name');
 
-#### isGet()
-İstek GET mi kontrol eder.
+// Varsayılan değer ile
+$name = $request->input('name', 'Misafir');
+
+// Tüm input
+$all = $request->input();
+$all = $request->all();
+```
+
+## HTTP Method'ları
+
+### Method Kontrolü
 
 ```php
 if ($request->isGet()) {
-    // GET isteği
+    // GET request
+}
+
+if ($request->isPost()) {
+    // POST request
+}
+
+if ($request->isPut()) {
+    // PUT request
+}
+
+if ($request->isDelete()) {
+    // DELETE request
+}
+
+// Method adını al
+$method = $request->method(); // GET, POST, PUT, DELETE
+```
+
+### Method Spoofing
+
+```html
+<!-- HTML Form -->
+<form method="POST" action="/users/123">
+    <input type="hidden" name="_method" value="PUT">
+    <input type="text" name="name" value="John">
+    <button type="submit">Güncelle</button>
+</form>
+```
+
+```php
+// PUT olarak algılanır
+if ($request->isPut()) {
+    $name = $request->input('name');
+    // Güncelleme işlemi
 }
 ```
 
-#### get($key = null, $default = null)
-GET verilerini alır.
+### Method-Specific Data
 
 ```php
+// GET verisi
 $search = $request->get('search');
 $page = $request->get('page', 1);
-$allGet = $request->get(); // Tüm GET verileri
-```
 
-#### gets()
-Tüm GET verilerini döndürür.
-
-```php
-$getData = $request->gets();
-```
-
-#### hasGet($key)
-GET verisi var mı kontrol eder.
-
-```php
-if ($request->hasGet('search')) {
-    $search = $request->get('search');
-}
-```
-
-### POST İstekleri
-
-#### isPost()
-İstek POST mu kontrol eder.
-
-```php
-if ($request->isPost()) {
-    // POST isteği
-}
-```
-
-#### post($key = null, $default = null)
-POST verilerini alır.
-
-```php
+// POST verisi
 $username = $request->post('username');
 $password = $request->post('password');
-$allPost = $request->post(); // Tüm POST verileri
+
+// JSON verisi
+$data = $request->json('data');
+$user = $request->json('user');
 ```
 
-#### posts()
-Tüm POST verilerini döndürür.
+## Input İşlemleri
+
+### Temel Input
 
 ```php
-$postData = $request->posts();
+// Tek değer
+$email = $request->input('email');
+
+// Varsayılan değer
+$role = $request->input('role', 'user');
+
+// Tüm input (GET + POST + JSON)
+$all = $request->input();
 ```
 
-#### hasPost($key)
-POST verisi var mı kontrol eder.
+### Seçici Input
 
 ```php
-if ($request->hasPost('username')) {
-    $username = $request->post('username');
+// Sadece belirli alanlar
+$credentials = $request->only('email', 'password');
+// ['email' => '...', 'password' => '...']
+
+// Belirli alanlar hariç
+$data = $request->except('_token', 'password_confirmation');
+```
+
+### Varlık Kontrolü
+
+```php
+// Input var mı ve boş değil mi?
+if ($request->has('email')) {
+    $email = $request->input('email');
+}
+
+// Birden fazla kontrol
+if ($request->has('name') && $request->has('email')) {
+    // Her ikisi de mevcut
 }
 ```
 
-### PUT İstekleri
+## File Upload
 
-#### isPut()
-İstek PUT mu kontrol eder.
-
-```php
-if ($request->isPut()) {
-    // PUT isteği
-}
-```
-
-#### put($key = null, $default = null)
-PUT verilerini alır.
-
-```php
-$name = $request->put('name');
-$email = $request->put('email');
-$allPut = $request->put(); // Tüm PUT verileri
-```
-
-#### puts()
-Tüm PUT verilerini döndürür.
-
-#### hasPut($key)
-PUT verisi var mı kontrol eder.
-
-### DELETE İstekleri
-
-#### isDelete()
-İstek DELETE mi kontrol eder.
-
-#### delete($key = null, $default = null)
-DELETE verilerini alır.
-
-#### deletes()
-Tüm DELETE verilerini döndürür.
-
-#### hasDelete($key)
-DELETE verisi var mı kontrol eder.
-
-## AJAX İstekleri
-
-### isAjax()
-İstek AJAX mi kontrol eder.
-
-```php
-if ($request->isAjax()) {
-    return $this->json($data);
-}
-```
-
-### isAjaxGet()
-İstek AJAX GET mi kontrol eder.
-
-### isAjaxPost()
-İstek AJAX POST mu kontrol eder.
-
-### ajax()
-AJAX verilerini döndürür.
-
-```php
-$ajaxData = $request->ajax();
-```
-
-## Dosya İşlemleri
-
-### hasFiles()
-Dosya yüklendi mi kontrol eder.
-
-```php
-if ($request->hasFiles()) {
-    // Dosya var
-}
-```
-
-### hasFile($key)
-Belirtilen dosya var mı kontrol eder.
+### Dosya Kontrolü
 
 ```php
 if ($request->hasFile('avatar')) {
+    // Dosya yüklendi
     $file = $request->file('avatar');
 }
 ```
 
-### file($key = null)
-Dosya verilerini alır.
+### Dosya Bilgileri
 
 ```php
-$avatar = $request->file('avatar');
-$allFiles = $request->file(); // Tüm dosyalar
+$file = $request->file('document');
 
-// Dosya bilgileri
-echo $avatar['name'];     // Dosya adı
-echo $avatar['type'];     // MIME türü
-echo $avatar['size'];     // Dosya boyutu
-echo $avatar['tmp_name']; // Geçici dosya yolu
-echo $avatar['error'];    // Hata kodu
-```
-
-### files()
-Tüm dosya verilerini döndürür.
-
-```php
-$fileData = $request->files();
-```
-
-## Genel Veri Erişimi
-
-### input($key = null, $default = null)
-Tüm input verilerini alır (GET, POST, PUT, DELETE).
-
-```php
-$username = $request->input('username');
-$allInput = $request->input(); // Tüm veriler
-```
-
-## URI ve Segment İşlemleri
-
-### segments()
-URI segmentlerini döndürür.
-
-```php
-// URL: /admin/users/123/edit
-$segments = $request->segments();
-// ['admin', 'users', '123', 'edit']
-```
-
-### hasSegment($segment)
-Belirtilen segment var mı kontrol eder.
-
-```php
-if ($request->hasSegment('admin')) {
-    // Admin panelinde
+if ($file) {
+    // Dosya bilgileri (basit array)
+    $name = $file['name'];        // Orijinal dosya adı
+    $tmpName = $file['tmp_name']; // Geçici dosya yolu
+    $size = $file['size'];        // Dosya boyutu
+    $type = $file['type'];        // MIME type
+    $error = $file['error'];      // Upload hatası
 }
 ```
 
-## Header İşlemleri
-
-### header()
-Tüm header verilerini döndürür.
+### Dosya Taşıma
 
 ```php
+$file = $request->file('image');
+
+if ($file && $file['error'] === UPLOAD_ERR_OK) {
+    $destination = 'uploads/' . uniqid() . '_' . $file['name'];
+    
+    if (move_uploaded_file($file['tmp_name'], $destination)) {
+        echo "Dosya başarıyla yüklendi";
+    }
+}
+```
+
+### Dosya Doğrulama Örneği
+
+```php
+$file = $request->file('document');
+
+if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+    die('Dosya yükleme hatası');
+}
+
+// Boyut kontrolü (max 5MB)
+if ($file['size'] > 5 * 1024 * 1024) {
+    die('Dosya çok büyük');
+}
+
+// Uzantı kontrolü
+$extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+$allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+
+if (!in_array(strtolower($extension), $allowedExtensions)) {
+    die('Geçersiz dosya türü');
+}
+
+// Güvenli dosya adı oluştur
+$safeName = uniqid() . '.' . $extension;
+$destination = 'uploads/' . $safeName;
+
+move_uploaded_file($file['tmp_name'], $destination);
+```
+
+## Headers
+
+### Header Alma
+
+```php
+// Belirli header
+$userAgent = $request->header('user-agent');
+$contentType = $request->header('content-type');
+
+// Varsayılan değer ile
+$custom = $request->header('x-custom-header', 'varsayılan');
+
+// Tüm header'lar
 $headers = $request->header();
 ```
 
-### hasHeader($key)
-Belirtilen header var mı kontrol eder.
+### Header Kontrolü
 
 ```php
-if ($request->hasHeader('Authorization')) {
-    $token = $request->header()['Authorization'];
+if ($request->hasHeader('authorization')) {
+    $auth = $request->header('authorization');
+}
+```
+
+### Bearer Token
+
+```php
+// Authorization: Bearer abc123xyz
+$token = $request->bearerToken();
+
+if ($token) {
+    // Token doğrula
+    $user = Auth::validateToken($token);
+}
+```
+
+## JSON İstekleri
+
+### JSON Kontrolü
+
+```php
+if ($request->isJson()) {
+    // Content-Type: application/json
+}
+
+if ($request->wantsJson()) {
+    // Accept: application/json
+}
+```
+
+### JSON Verisi Alma
+
+```php
+// Tüm JSON verisi
+$data = $request->json();
+
+// Belirli alan
+$name = $request->json('name');
+$email = $request->json('email');
+
+// Varsayılan değer ile
+$role = $request->json('role', 'user');
+```
+
+### JSON API Örneği
+
+```javascript
+// Frontend
+fetch('/api/users', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        name: 'John Doe',
+        email: 'john@example.com'
+    })
+});
+```
+
+```php
+// Backend
+$request = new Request();
+
+if ($request->isJson()) {
+    $name = $request->json('name');
+    $email = $request->json('email');
+    
+    // Kullanıcı oluştur
+    $user = User::create(['name' => $name, 'email' => $email]);
+    
+    // JSON response
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'user' => $user]);
+}
+```
+
+## AJAX/Fetch Kontrolü
+
+```php
+// XMLHttpRequest (jQuery, Axios)
+if ($request->isAjax()) {
+    echo json_encode($data);
+}
+
+// Fetch API veya JSON isteyen client
+if ($request->wantsJson()) {
+    header('Content-Type: application/json');
+    echo json_encode($data);
+} else {
+    echo view('page', $data);
+}
+```
+
+## URL ve Path Bilgileri
+
+### URL Bilgileri
+
+```php
+// Mevcut URL (query string olmadan)
+$url = $request->url();
+// https://example.com/users/profile
+
+// Tam URL (query string ile)
+$fullUrl = $request->fullUrl();
+// https://example.com/users/profile?tab=settings
+
+// Path
+$path = $request->path();
+// /users/profile
+```
+
+### URI Segments
+
+```php
+// URL: /users/123/posts/456
+
+$segments = $request->segments();
+// ['users', '123', 'posts', '456']
+
+$userId = $request->segment(1);    // '123'
+$postId = $request->segment(3);    // '456'
+$missing = $request->segment(10, 'default'); // 'default'
+```
+
+## Güvenlik
+
+### HTTPS Kontrolü
+
+```php
+if ($request->isSecure()) {
+    // HTTPS bağlantısı
+}
+
+// HTTPS'e yönlendir
+if (!$request->isSecure()) {
+    $httpsUrl = str_replace('http://', 'https://', $request->fullUrl());
+    header("Location: $httpsUrl");
+    exit;
+}
+```
+
+### IP Adresi
+
+```php
+// Client IP adresi
+$ip = $request->ip();
+
+// Proxy'ler arkasında gerçek IP'yi alır
+// X-Forwarded-For header'ını kontrol eder
+```
+
+### User Agent
+
+```php
+$userAgent = $request->userAgent();
+
+if (strpos($userAgent, 'Mobile') !== false) {
+    // Mobil cihaz
+    echo view('mobile/page');
+} else {
+    // Desktop
+    echo view('desktop/page');
 }
 ```
 
 ## Server Bilgileri
 
-### server()
-Tüm server verilerini döndürür.
-
 ```php
-$serverData = $request->server();
+// Server değişkeni
+$method = $request->server('REQUEST_METHOD');
+$host = $request->server('HTTP_HOST');
+
+// Tüm server değişkenleri
+$server = $request->server();
 ```
 
-### hasServer($key)
-Belirtilen server verisi var mı kontrol eder.
+## Pratik Örnekler
+
+### Basit Form İşleme
 
 ```php
-if ($request->hasServer('HTTP_HOST')) {
-    $host = $_SERVER['HTTP_HOST'];
-}
-```
+$request = new Request();
 
-## Kullanıcı Bilgileri
-
-### user($key = null)
-Kullanıcı bilgilerini döndürür.
-
-```php
-$userInfo = $request->user();
-// ['ip' => '127.0.0.1', 'agent' => '...', 'proxy' => [...]]
-
-$ip = $request->user('ip');
-```
-
-### userAgent()
-Kullanıcı agent bilgisini döndürür.
-
-```php
-$userAgent = $request->userAgent();
-```
-
-### userIp()
-Kullanıcı IP adresini döndürür (proxy desteği ile).
-
-```php
-$ip = $request->userIp();
-```
-
-### userProxy()
-Kullanıcı proxy bilgilerini döndürür.
-
-```php
-$proxyInfo = $request->userProxy();
-```
-
-## İstek Gövdesi
-
-### getBody()
-Ham istek gövdesini döndürür.
-
-```php
-$rawBody = $request->getBody();
-$jsonData = json_decode($rawBody, true);
-```
-
-## Örnek Kullanımlar
-
-### Form İşleme
-```php
-class ContactController extends Controller
-{
-    public function store()
-    {
-        if ($this->request->isPost()) {
-            $name = $this->request->post('name');
-            $email = $this->request->post('email');
-            $message = $this->request->post('message');
-            
-            // İşlem...
-        }
+if ($request->isPost()) {
+    $name = $request->post('name');
+    $email = $request->post('email');
+    
+    if ($name && $email) {
+        // Kullanıcı kaydet
+        User::create(['name' => $name, 'email' => $email]);
+        echo "Kayıt başarılı";
+    } else {
+        echo "Tüm alanları doldurun";
     }
 }
 ```
 
 ### API Endpoint
+
 ```php
-class ApiController extends Controller
+$request = new Request();
+
+// GET /api/users?search=john
+if ($request->isGet()) {
+    $search = $request->get('search');
+    $users = User::search($search)->get();
+    
+    header('Content-Type: application/json');
+    echo json_encode($users);
+}
+
+// POST /api/users
+if ($request->isPost()) {
+    if ($request->isJson()) {
+        $name = $request->json('name');
+        $email = $request->json('email');
+    } else {
+        $name = $request->post('name');
+        $email = $request->post('email');
+    }
+    
+    $user = User::create(['name' => $name, 'email' => $email]);
+    
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'user' => $user]);
+}
+```
+
+### Dosya Upload API
+
+```php
+$request = new Request();
+
+if ($request->hasFile('image')) {
+    $file = $request->file('image');
+    
+    // Doğrulama
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Upload hatası']);
+        exit;
+    }
+    
+    if ($file['size'] > 2 * 1024 * 1024) { // 2MB
+        http_response_code(400);
+        echo json_encode(['error' => 'Dosya çok büyük']);
+        exit;
+    }
+    
+    // Kaydet
+    $filename = uniqid() . '_' . $file['name'];
+    $destination = 'uploads/' . $filename;
+    
+    if (move_uploaded_file($file['tmp_name'], $destination)) {
+        echo json_encode(['success' => true, 'filename' => $filename]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Dosya kaydedilemedi']);
+    }
+} else {
+    http_response_code(400);
+    echo json_encode(['error' => 'Dosya bulunamadı']);
+}
+```
+
+### Authentication Middleware
+
+```php
+function requireAuth($request) {
+    $token = $request->bearerToken();
+    
+    if (!$token) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token gerekli']);
+        exit;
+    }
+    
+    $user = User::where('api_token', $token)->first();
+    
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Geçersiz token']);
+        exit;
+    }
+    
+    return $user;
+}
+
+// Kullanım
+$request = new Request();
+$user = requireAuth($request);
+
+// Artık authenticated user var
+echo "Hoş geldin, " . $user->name;
+```
+
+## Best Practices
+
+### 1. Input Doğrulama
+
+```php
+// Her zaman input'u doğrula
+$email = $request->input('email');
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    die('Geçersiz email');
+}
+
+$age = $request->input('age');
+if (!is_numeric($age) || $age < 18) {
+    die('Geçersiz yaş');
+}
+```
+
+### 2. XSS Koruması
+
+```php
+// HTML karakterleri escape et
+$name = htmlspecialchars($request->input('name'), ENT_QUOTES, 'UTF-8');
+
+// Veya helper function kullan
+function clean($input) {
+    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+$name = clean($request->input('name'));
+```
+
+### 3. Dosya Upload Güvenliği
+
+```php
+$file = $request->file('document');
+
+if ($file) {
+    // Uzantı whitelist
+    $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
+    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    
+    if (!in_array(strtolower($extension), $allowed)) {
+        die('Geçersiz dosya türü');
+    }
+    
+    // Güvenli dosya adı
+    $safeName = uniqid() . '.' . $extension;
+    
+    // Upload dizini dışında çalıştırılabilir dosyalar
+    $destination = 'uploads/' . $safeName;
+    move_uploaded_file($file['tmp_name'], $destination);
+}
+```
+
+### 4. Content Negotiation
+
+```php
+$data = ['users' => $users];
+
+if ($request->wantsJson()) {
+    header('Content-Type: application/json');
+    echo json_encode($data);
+} else {
+    echo view('users/index', $data);
+}
+```
+
+### 5. Method Spoofing
+
+```php
+// HTML formlarında PUT/DELETE için
+if ($request->isPut()) {
+    // Update işlemi
+} elseif ($request->isDelete()) {
+    // Delete işlemi
+} elseif ($request->isPost()) {
+    // Create işlemi
+}
+```
+
+## Sword Framework Entegrasyonu
+
+Request sınıfı Sword Framework'e entegre edilmiştir:
+
+```php
+// Controller'da
+class UserController extends Controller
 {
-    public function users()
+    public function store()
     {
-        if ($this->request->isGet()) {
-            // Kullanıcıları listele
-            $page = $this->request->get('page', 1);
-            $limit = $this->request->get('limit', 10);
-        }
+        $request = $this->request; // Otomatik inject
         
-        if ($this->request->isPost()) {
-            // Yeni kullanıcı oluştur
-            $data = $this->request->input();
-        }
+        $name = $request->input('name');
+        $email = $request->input('email');
         
-        if ($this->request->isPut()) {
-            // Kullanıcı güncelle
-            $data = $this->request->put();
-        }
+        // Kullanıcı oluştur
+        User::create(['name' => $name, 'email' => $email]);
         
-        if ($this->request->isDelete()) {
-            // Kullanıcı sil
-            $id = $this->request->delete('id');
-        }
+        return $this->redirect('/users');
+    }
+}
+
+// Veya global olarak
+$request = Sword::request();
+```
+
+## Troubleshooting
+
+### PUT/DELETE Çalışmıyor
+
+```html
+<!-- Method spoofing kullan -->
+<form method="POST">
+    <input type="hidden" name="_method" value="PUT">
+</form>
+```
+
+### JSON Parse Edilmiyor
+
+```php
+// Content-Type kontrolü
+if ($request->isJson()) {
+    $data = $request->json();
+} else {
+    echo "JSON değil";
+}
+```
+
+### Dosya Upload Hataları
+
+```php
+$file = $request->file('document');
+
+if ($file['error'] !== UPLOAD_ERR_OK) {
+    switch ($file['error']) {
+        case UPLOAD_ERR_INI_SIZE:
+            echo "Dosya çok büyük (php.ini)";
+            break;
+        case UPLOAD_ERR_FORM_SIZE:
+            echo "Dosya çok büyük (form)";
+            break;
+        case UPLOAD_ERR_NO_FILE:
+            echo "Dosya seçilmedi";
+            break;
     }
 }
 ```
 
-### Dosya Yükleme
-```php
-class UploadController extends Controller
-{
-    public function avatar()
-    {
-        if ($this->request->hasFile('avatar')) {
-            $file = $this->request->file('avatar');
-            
-            if ($file['error'] === UPLOAD_ERR_OK) {
-                $uploadPath = '/uploads/' . $file['name'];
-                move_uploaded_file($file['tmp_name'], $uploadPath);
-            }
-        }
-    }
-}
-```
+---
 
-### AJAX İşleme
-```php
-class SearchController extends Controller
-{
-    public function index()
-    {
-        if ($this->request->isAjax()) {
-            $query = $this->request->input('q');
-            $results = $this->search($query);
-            
-            return $this->json($results);
-        }
-        
-        // Normal sayfa
-        $this->render('search/index');
-    }
-}
-```
+**Sword Framework** - Keskin. Hızlı. Ölümsüz.
